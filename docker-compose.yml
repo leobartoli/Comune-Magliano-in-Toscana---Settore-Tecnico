@@ -135,6 +135,7 @@ services:
       - POSTGRES_PASSWORD=${PASSWORD_DB}
     volumes:
       - dati_database_municipio:/var/lib/postgresql/data
+      - "./db/paesaggistico.sql:/data/sql_import/paesaggistico.sql:ro"
     ports:
       - "5432:5432"
     networks:
