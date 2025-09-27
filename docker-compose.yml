@@ -34,6 +34,33 @@ cervello-analitico:
   networks:
     - rete_municipio
 
+# Server di Contesto (Model Context Protocol - MCP)
+# Ipotizziamo che sia un semplice server Flask/FastAPI (Python) o Node.js 
+# che fornisce contesto (es. documenti, DB lookup) ai modelli AI.
+server-context-mcp:
+  image: python:3.11-slim # Immagine base per un server API leggero
+  container_name: server_contesto_mcp
+  restart: always
+  volumes:
+    # Mappa la cartella del codice e dei file di contesto (es. file di configurazione)
+    - ./context_mcp:/app
+  working_dir: /app
+  # Comando di avvio ipotetico (es. avviare un server API Python)
+  command: python3 server.py 
+  environment:
+    # Variabile d'ambiente per il database, se deve fare lookup
+    DATABASE_URL: postgresql://${UTENTE_DB}:${PASSWORD_DB}@database-patrimonio:5432/patrimonio_smart
+    # Porta interna del servizio
+    PORT: 8000
+  ports:
+    - "8000:8000"
+  networks:
+    - rete_municipio
+  # Dipendenza essenziale: deve accedere al database e Ollama
+  depends_on:
+    - database-patrimonio
+    - cervello-analitico
+
 # Riconoscimento Vocale (per interazione con operatori/sportelli)
 interazione-vocale:
   image: alphacep/vosk-server:latest
@@ -97,6 +124,9 @@ flussi-manutenzione:
     - N8N_PORT=5678
   networks:
     - rete_municipio
+  # Dipendenza logica: n8n probabilmente userà il server MCP per i flussi AI
+  depends_on:
+    - server-context-mcp
 
 # =================================================================
 # DATABASE E CACHE DATI
@@ -226,6 +256,8 @@ volumes:
     driver: local
   dati_zerotier_municipio:
     driver: local
+  dati_mcp_contexto: # Nuovo volume per i dati/codice MCP
+    driver: local
 
 # =================================================================
 # RETE INTERNA DEL MUNICIPIO
@@ -237,4 +269,3 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/16
-
