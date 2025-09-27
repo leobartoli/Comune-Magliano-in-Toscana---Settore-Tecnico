@@ -4,14 +4,23 @@ services:
 # INTELLIGENZA ARTIFICIALE E INTERAZIONE
 # =================================================================
 
-  # Cervello AI - Ollama (Funziona stabilmente su CPU)
+  # Cervello AI - Ollama (Rimosso il supporto GPU per risolvere l'errore WSL/Nvidia)
   cervello-analitico:
     image: ollama/ollama:latest
     container_name: cervello_comune
     restart: always
     env_file:
       - .env
-    # Rimosso il blocco 'deploy' Nvidia che causava l'errore
+    # --- RIMOZIONE CONFIGURAZIONE GPU ---
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    # runtime: nvidia 
+    # ------------------------------------
     volumes:
       - dati_ai_municipio:/root/.ollama
     ports:
@@ -46,19 +55,17 @@ services:
       - database-patrimonio
       - cervello-analitico
 
-  # Sintesi Vocale Italiana (TTS - Usa immagine ufficiale rhasspy/wyoming-piper)
+  # Sintesi Vocale Italiana (TTS - Corretto il comando)
   sintesi-vocale-avvisi:
     image: rhasspy/wyoming-piper:latest 
     container_name: voce_avvisi
     restart: always
     env_file:
       - .env
-    # Il comando usa l'opzione --http-server per esporre un'API REST
-    command: --http-server --voice ${PIPER_VOICE}
+    # COMANDO CORRETTO: Usa solo l'argomento --voice
+    command: --voice ${PIPER_VOICE}
     ports:
-      # API REST per TTS (interfaccia facile da usare)
-      - "10200:5000" 
-      # Porta di comunicazione Wyoming (se Home Assistant vuole usare il protocollo)
+      # Porta di comunicazione Wyoming (10200) mappata su 10201
       - "10201:10200"
     networks:
       - rete_municipio
