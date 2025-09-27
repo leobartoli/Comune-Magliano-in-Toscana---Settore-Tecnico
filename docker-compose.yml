@@ -124,7 +124,10 @@ services:
 
   # Database Principale (Postgres)
   database-patrimonio:
-    image: ankane/pgvector
+    # ⚠️ Modifica per l'automazione SQL: usa build
+    build: 
+      context: ./db
+      dockerfile: Dockerfile
     container_name: database_municipio
     restart: always
     env_file:
@@ -135,7 +138,7 @@ services:
       - POSTGRES_PASSWORD=${PASSWORD_DB}
     volumes:
       - dati_database_municipio:/var/lib/postgresql/data
-      - "./db/paesaggistico.sql:/sql_scripts/paesaggistico.sql:ro" 
+      # ⚠️ Rimosso: il mount manuale del singolo file SQL
     ports:
       - "5432:5432"
     networks:

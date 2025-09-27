@@ -1,17 +1,12 @@
-# Usa la tua immagine attuale come base
 FROM ankane/pgvector
 
-# Copia TUTTI i file SQL dalla cartella corrente (cioè ./db/)
-# Copiamo in una cartella temporanea nel container
+# Copia TUTTI i file .sql nella cartella standard di inizializzazione del DB.
 COPY *.sql /docker-entrypoint-initdb.d/
 
-# Aggiungiamo il meccanismo di esecuzione forzata:
-# Questo script eseguirà l'entrypoint originale di pgvector,
-# attenderà l'avvio del DB, ed eseguirà tutti gli script copiati nella cartella di inizializzazione
-# (Nota: Eseguiamo gli script DOPO che il server è avviato per aggirare il problema di ankane)
+# ⚠️ CORREZIONE QUI: Rimuoviamo USER postgres qui, lo useremo dopo!
 
-USER postgres
-
+# DEFINISCE LO SCRIPT DI ENTRYPOINT CUSTOM (Eseguito come root, dove i permessi funzionano)
+# Lo script è un singolo comando RUN per motivi di efficienza nel Dockerfile.
 RUN echo '#!/bin/bash' > /usr/local/bin/custom-entrypoint.sh && \
     echo 'if [ "$1" = "postgres" ]; then' >> /usr/local/bin/custom-entrypoint.sh && \
     echo '  /usr/local/bin/docker-entrypoint.sh "$@"' >> /usr/local/bin/custom-entrypoint.sh && \
@@ -24,5 +19,10 @@ RUN echo '#!/bin/bash' > /usr/local/bin/custom-entrypoint.sh && \
     echo 'fi' >> /usr/local/bin/custom-entrypoint.sh && \
     chmod +x /usr/local/bin/custom-entrypoint.sh
 
-# Sostituisci l'entrypoint con il nostro script personalizzato
+# ⚠️ AGGIUNTA QUI: Eseguiamo questo SOLO dopo che lo script è stato creato.
+# Da questo punto in poi, l'utente per l'esecuzione del container è 'postgres'.
+USER postgres 
+
+# Sostituisci l'Entrypoint del container
 ENTRYPOINT ["custom-entrypoint.sh"]
+CMD ["postgres"]
