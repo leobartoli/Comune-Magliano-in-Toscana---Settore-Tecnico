@@ -111,6 +111,8 @@ services:
       - N8N_BASIC_AUTH_PASSWORD=${PASSWORD_ADMIN}
       - N8N_HOST=0.0.0.0
       - N8N_PORT=5678
+      - WEBHOOK_URL=https://n8n.leonardobartoli.org/
+      - N8N_PROTOCOL=https
     networks:
       - rete_municipio
     depends_on:
