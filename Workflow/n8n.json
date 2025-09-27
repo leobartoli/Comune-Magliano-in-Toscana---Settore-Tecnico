@@ -1,0 +1,173 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        96,
+        -32
+      ],
+      "id": "d910be50-d31d-4ce9-9e41-cfc3cf0456b8",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        32,
+        192
+      ],
+      "id": "d0ec3c7f-f360-4b10-9510-b79c130f9b92",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "kZjjBzMYLYyzQSRm",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -128,
+        -32
+      ],
+      "id": "b671cc6b-c57a-47f3-ae1a-193f941c427b",
+      "name": "Telegram Trigger",
+      "webhookId": "c78cd4ca-0645-4365-aafa-3fbd6359a8ab",
+      "credentials": {
+        "telegramApi": {
+          "id": "J6z1wLrloGhy6Exc",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "documenti_semplici",
+          "mode": "list",
+          "cachedResultName": "documenti_semplici"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        496,
+        -32
+      ],
+      "id": "b9320d27-0c2c-4648-8126-f56e068e1c9f",
+      "name": "Select rows from a table",
+      "credentials": {
+        "postgres": {
+          "id": "tp41nvxHaylPwL5c",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get"
+      },
+      "type": "n8n-nodes-base.grafana",
+      "typeVersion": 1,
+      "position": [
+        688,
+        -208
+      ],
+      "id": "2336a82b-e90b-4ed1-a29d-24affde65550",
+      "name": "Get a dashboard",
+      "credentials": {
+        "grafanaApi": {
+          "id": "mxNV2AlxvwiJL2Ue",
+          "name": "Grafana account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.homeAssistant",
+      "typeVersion": 1,
+      "position": [
+        496,
+        176
+      ],
+      "id": "d8aa1e90-4970-446d-bb5f-aa640073d0b8",
+      "name": "Get the config",
+      "credentials": {
+        "homeAssistantApi": {
+          "id": "0QBRMpNsuemOWNx7",
+          "name": "Home Assistant account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        []
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select rows from a table": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d2124a5e-ff2c-4c7a-aa5c-bcb2d72380f2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fac120731414d4eff00a312a125436b5347674d0f93f2b56daab27d796c05560"
+  },
+  "id": "cHyVML2Jj4Pnboyx",
+  "tags": []
+}

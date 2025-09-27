@@ -124,7 +124,7 @@ services:
 
   # Database Principale (Postgres)
   database-patrimonio:
-    image: postgres:15
+    image: ankane/pgvector
     container_name: database_municipio
     restart: always
     env_file:
@@ -230,8 +230,6 @@ services:
       - /dev/net/tun
     environment:
       - ZEROTIER_NETWORK_ID=${RETE_ZEROTIER_ID}
-      - ZEROTIER_IDENTITY_PUBLIC=${ZEROTIER_IDENTITY_PUBLIC} 
-      - ZEROTIER_IDENTITY_SECRET=${ZEROTIER_IDENTITY_SECRET} 
     volumes:
       - dati_zerotier_municipio:/var/lib/zerotier-one
     network_mode: host
