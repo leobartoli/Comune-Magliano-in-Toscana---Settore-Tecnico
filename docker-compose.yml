@@ -44,48 +44,30 @@ services:
     working_dir: /app
     command: python3 server.py 
     environment:
-      DATABASE_URL: postgresql://${UTENTE_DB}:${PASSWORD_DB}@database-patrimonio:5432/patrimonio_smart
-      PORT: 8000
+      DATABASE_URL: ${DATABASE_URL} 
+      PORT: ${MCP_API_PORT}
     ports:
-      - "8000:8000"
+      - "${MCP_API_PORT}:${MCP_API_PORT}"
     networks:
       - rete_municipio
     depends_on:
       - database-patrimonio
       - cervello-analitico
 
-  # Riconoscimento Vocale (OpenAI Whisper)
-  interazione-vocale:
-    image: onerahmet/openai-whisper-asr-webservice:latest
-    container_name: ascolto_sportello
-    restart: always
-    env_file:
-      - .env
-    environment:
-      - ASR_MODEL=base
-      - ASR_ENGINE=openai_whisper
-    volumes:
-      - dati_whisper_models:/app/models
-    ports:
-      - "2700:9000"
-    networks:
-      - rete_municipio
-
-  # Sintesi Vocale Italiana (Piper TTS)
+  # Sintesi Vocale Italiana (TTS - Usa immagine ufficiale rhasspy/wyoming-piper)
   sintesi-vocale-avvisi:
-    image: lscr.io/linuxserver/piper:latest
+    image: rhasspy/wyoming-piper:latest 
     container_name: voce_avvisi
     restart: always
     env_file:
       - .env
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Rome
-    volumes:
-      - dati_piper_tts:/config
+    # Il comando usa l'opzione --http-server per esporre un'API REST per la sintesi
+    command: --http-server --voice ${PIPER_VOICE}
     ports:
-      - "10200:10200"
+      # API REST per TTS (interfaccia facile da usare)
+      - "10200:5000" 
+      # Porta di comunicazione Wyoming (se Home Assistant vuole usare il protocollo)
+      - "10201:10200"
     networks:
       - rete_municipio
 
@@ -98,9 +80,9 @@ services:
     image: ghcr.io/home-assistant/home-assistant:stable
     container_name: gestione_edifici
     restart: always
-    privileged: true
     env_file:
       - .env
+    privileged: true
     volumes:
       - dati_piattaforma:/config
       - /etc/localtime:/etc/localtime:ro
@@ -110,7 +92,7 @@ services:
     networks:
       - rete_municipio
     environment:
-      - TZ=Europe/Rome
+      - TZ=${TZ}
 
   # Automazioni e Flussi di Lavoro (n8n)
   flussi-manutenzione:
@@ -124,7 +106,7 @@ services:
     ports:
       - "5678:5678"
     environment:
-      - GENERIC_TIMEZONE=Europe/Rome
+      - GENERIC_TIMEZONE=${TZ}
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=${UTENTE_ADMIN}
       - N8N_BASIC_AUTH_PASSWORD=${PASSWORD_ADMIN}
@@ -233,7 +215,7 @@ services:
       - piattaforma-iot
       - dashboard-report
 
-  # ZeroTier
+  # ZeroTier (configurazione necessaria per accedere alla rete hardware remota)
   rete-infrastrutture-remote:
     image: zerotier/zerotier:latest
     container_name: rete_edifici_remoti
@@ -275,12 +257,9 @@ volumes:
     driver: local
   dati_zerotier_municipio:
     driver: local
-  dati_whisper_models:
-    driver: local
-  dati_piper_tts:
-    driver: local
   dati_mcp_contexto:
     driver: local
+  dati_tts_cache: 
 
 # =================================================================
 # RETE INTERNA DEL MUNICIPIO
