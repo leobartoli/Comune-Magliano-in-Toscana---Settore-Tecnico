@@ -1,8 +1,4 @@
-Version: '3.8'
-
-# File delle variabili d’ambiente
-env_file:
-  - .env
+version: '3.8'
 
 services:
 
@@ -10,230 +6,253 @@ services:
 # INTELLIGENZA ARTIFICIALE E INTERAZIONE
 # =================================================================
 
-# Cervello AI - Ollama con GPU (Analisi dati/Supporto decisionale)
-cervello-analitico:
-  image: ollama/ollama:latest
-  container_name: cervello_comune
-  restart: always
-  deploy:
-    resources:
-      reservations:
-        devices:
-          - driver: nvidia
-            count: all
-            capabilities: [gpu]
-  volumes:
-    - dati_ai_municipio:/root/.ollama
-  ports:
-    - "11434:11434"
-  healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-    interval: 30s
-    timeout: 10s
-    retries: 3
-  networks:
-    - rete_municipio
+  # Cervello AI - Ollama con GPU (Analisi dati/Supporto decisionale)
+  cervello-analitico:
+    image: ollama/ollama:latest
+    container_name: cervello_comune
+    restart: always
+    env_file:
+      - .env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - dati_ai_municipio:/root/.ollama
+    ports:
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - rete_municipio
 
-# Server di Contesto (Model Context Protocol - MCP)
-# Ipotizziamo che sia un semplice server Flask/FastAPI (Python) o Node.js 
-# che fornisce contesto (es. documenti, DB lookup) ai modelli AI.
-server-context-mcp:
-  image: python:3.11-slim # Immagine base per un server API leggero
-  container_name: server_contesto_mcp
-  restart: always
-  volumes:
-    # Mappa la cartella del codice e dei file di contesto (es. file di configurazione)
-    - ./context_mcp:/app
-  working_dir: /app
-  # Comando di avvio ipotetico (es. avviare un server API Python)
-  command: python3 server.py 
-  environment:
-    # Variabile d'ambiente per il database, se deve fare lookup
-    DATABASE_URL: postgresql://${UTENTE_DB}:${PASSWORD_DB}@database-patrimonio:5432/patrimonio_smart
-    # Porta interna del servizio
-    PORT: 8000
-  ports:
-    - "8000:8000"
-  networks:
-    - rete_municipio
-  # Dipendenza essenziale: deve accedere al database e Ollama
-  depends_on:
-    - database-patrimonio
-    - cervello-analitico
+  # Server di Contesto (Model Context Protocol - MCP)
+  server-context-mcp:
+    image: python:3.11-slim
+    container_name: server_contesto_mcp
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ./context_mcp:/app
+    working_dir: /app
+    command: python3 server.py 
+    environment:
+      DATABASE_URL: postgresql://${UTENTE_DB}:${PASSWORD_DB}@database-patrimonio:5432/patrimonio_smart
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    networks:
+      - rete_municipio
+    depends_on:
+      - database-patrimonio
+      - cervello-analitico
 
-# Riconoscimento Vocale (per interazione con operatori/sportelli)
-interazione-vocale:
-  image: alphacep/vosk-server:latest
-  container_name: ascolto_sportello
-  restart: always
-  volumes:
-    - ./modello_vocale_italiano:/opt/vosk-model:ro
-  ports:
-    - "2700:2700"
-  networks:
-    - rete_municipio
+  # Riconoscimento Vocale (OpenAI Whisper)
+  interazione-vocale:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    container_name: ascolto_sportello
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - ASR_MODEL=base
+      - ASR_ENGINE=openai_whisper
+    volumes:
+      - dati_whisper_models:/app/models
+    ports:
+      - "2700:9000"
+    networks:
+      - rete_municipio
 
-# Sintesi Vocale Italiana (per avvisi/risposte automatiche)
-sintesi-vocale-avvisi:
-  image: rhasspy/piper:latest
-  container_name: voce_avvisi
-  restart: always
-  environment:
-    - PIPER_VOICE=it_IT-riccardo-x_low
-  ports:
-    - "10200:10200"
-  networks:
-    - rete_municipio
+  # Sintesi Vocale Italiana (Piper TTS)
+  sintesi-vocale-avvisi:
+    image: lscr.io/linuxserver/piper:latest
+    container_name: voce_avvisi
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Rome
+    volumes:
+      - dati_piper_tts:/config
+    ports:
+      - "10200:10200"
+    networks:
+      - rete_municipio
 
 # =================================================================
 # AUTOMAZIONE E MONITORAGGIO INFRASTRUTTURE
 # =================================================================
 
-# Home Assistant - Piattaforma di integrazione IoT/BMS
-piattaforma-iot:
-  image: ghcr.io/home-assistant/home-assistant:stable
-  container_name: gestione_edifici
-  restart: always
-  privileged: true
-  volumes:
-    - dati_piattaforma:/config
-    - /etc/localtime:/etc/localtime:ro
-    - /run/dbus:/run/dbus:ro
-  ports:
-    - "8123:8123"
-  networks:
-    - rete_municipio
-  environment:
-    - TZ=Europe/Rome
+  # Home Assistant - Piattaforma di integrazione IoT/BMS
+  piattaforma-iot:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: gestione_edifici
+    restart: always
+    privileged: true
+    env_file:
+      - .env
+    volumes:
+      - dati_piattaforma:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    ports:
+      - "8123:8123"
+    networks:
+      - rete_municipio
+    environment:
+      - TZ=Europe/Rome
 
-# Automazioni e Flussi di Lavoro (es. manutenzioni programmate)
-flussi-manutenzione:
-  image: n8nio/n8n:latest
-  container_name: automazioni_municipio
-  restart: always
-  volumes:
-    - dati_automazioni_municipio:/home/node/.n8n
-  ports:
-    - "5678:5678"
-  environment:
-    - GENERIC_TIMEZONE=Europe/Rome
-    - N8N_BASIC_AUTH_ACTIVE=true
-    - N8N_BASIC_AUTH_USER=${UTENTE_ADMIN}
-    - N8N_BASIC_AUTH_PASSWORD=${PASSWORD_ADMIN}
-    - N8N_HOST=0.0.0.0
-    - N8N_PORT=5678
-  networks:
-    - rete_municipio
-  # Dipendenza logica: n8n probabilmente userà il server MCP per i flussi AI
-  depends_on:
-    - server-context-mcp
+  # Automazioni e Flussi di Lavoro (n8n)
+  flussi-manutenzione:
+    image: n8nio/n8n:latest
+    container_name: automazioni_municipio
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - dati_automazioni_municipio:/home/node/.n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=Europe/Rome
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${UTENTE_ADMIN}
+      - N8N_BASIC_AUTH_PASSWORD=${PASSWORD_ADMIN}
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+    networks:
+      - rete_municipio
+    depends_on:
+      - server-context-mcp
 
 # =================================================================
 # DATABASE E CACHE DATI
 # =================================================================
 
-# Database Principale (Anagrafica beni/Stati)
-database-patrimonio:
-  image: postgres:15
-  container_name: database_municipio
-  restart: always
-  environment:
-    - POSTGRES_DB=patrimonio_smart
-    - POSTGRES_USER=${UTENTE_DB}
-    - POSTGRES_PASSWORD=${PASSWORD_DB}
-  volumes:
-    - dati_database_municipio:/var/lib/postgresql/data
-  ports:
-    - "5432:5432"
-  networks:
-    - rete_municipio
+  # Database Principale (Postgres)
+  database-patrimonio:
+    image: postgres:15
+    container_name: database_municipio
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=patrimonio_smart
+      - POSTGRES_USER=${UTENTE_DB}
+      - POSTGRES_PASSWORD=${PASSWORD_DB}
+    volumes:
+      - dati_database_municipio:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - rete_municipio
 
-# Cache e Code di Messaggi (per alta velocità/notifiche)
-cache-dati:
-  image: redis:7-alpine
-  container_name: cache_municipio
-  restart: always
-  volumes:
-    - dati_cache_municipio:/data
-  ports:
-    - "6379:6379"
-  networks:
-    - rete_municipio
+  # Cache e Code di Messaggi (Redis)
+  cache-dati:
+    image: redis:7-alpine
+    container_name: cache_municipio
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - dati_cache_municipio:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - rete_municipio
 
 # =================================================================
 # ANALISI E VISUALIZZAZIONE
 # =================================================================
 
-# Dashboard di Monitoraggio (Grafici e report operativi)
-dashboard-report:
-  image: grafana/grafana:latest
-  container_name: dashboard_municipio
-  restart: always
-  environment:
-    - GF_SECURITY_ADMIN_USER=${UTENTE_ADMIN}
-    - GF_SECURITY_ADMIN_PASSWORD=${PASSWORD_ADMIN}
-    - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
-  volumes:
-    - dati_dashboard_municipio:/var/lib/grafana
-  ports:
-    - "3000:3000"
-  networks:
-    - rete_municipio
+  # Dashboard di Monitoraggio (Grafana)
+  dashboard-report:
+    image: grafana/grafana:latest
+    container_name: dashboard_municipio
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - GF_SECURITY_ADMIN_USER=${UTENTE_ADMIN}
+      - GF_SECURITY_ADMIN_PASSWORD=${PASSWORD_ADMIN}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - dati_dashboard_municipio:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - rete_municipio
 
-# Database Metriche (Serie storiche da sensori/telemetria)
-telemetria-sensori:
-  image: influxdb:2.7
-  container_name: metriche_municipio
-  restart: always
-  environment:
-    - DOCKER_INFLUXDB_INIT_MODE=setup
-    - DOCKER_INFLUXDB_INIT_USERNAME=${UTENTE_ADMIN}
-    - DOCKER_INFLUXDB_INIT_PASSWORD=${PASSWORD_ADMIN}
-    - DOCKER_INFLUXDB_INIT_ORG=GestioneComunale
-    - DOCKER_INFLUXDB_INIT_BUCKET=sensori_patrimonio
-  volumes:
-    - dati_metriche_municipio:/var/lib/influxdb2
-  ports:
-    - "8086:8086"
-  networks:
-    - rete_municipio
+  # Database Metriche (InfluxDB)
+  telemetria-sensori:
+    image: influxdb:2.7
+    container_name: metriche_municipio
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${UTENTE_ADMIN}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${PASSWORD_ADMIN}
+      - DOCKER_INFLUXDB_INIT_ORG=GestioneComunale
+      - DOCKER_INFLUXDB_INIT_BUCKET=sensori_patrimonio
+    volumes:
+      - dati_metriche_municipio:/var/lib/influxdb2
+    ports:
+      - "8086:8086"
+    networks:
+      - rete_municipio
 
 # =================================================================
 # ACCESSO SICURO E RETI ESTERNE
 # =================================================================
 
-# Tunnel Cloudflare per accesso esterno sicuro (Es. per dipendenti remoti)
-tunnel-accesso-remoto:
-  image: cloudflare/cloudflared:latest
-  container_name: tunnel_comunale
-  restart: always
-  environment:
-    - TUNNEL_TOKEN=${TOKEN_CLOUDFLARE}
-  command: tunnel run
-  networks:
-    - rete_municipio
-  depends_on:
-    - piattaforma-iot
-    - dashboard-report
+  # Tunnel Cloudflare
+  tunnel-accesso-remoto:
+    image: cloudflare/cloudflared:latest
+    container_name: tunnel_comunale
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - TUNNEL_TOKEN=${TOKEN_CLOUDFLARE}
+    command: tunnel run
+    networks:
+      - rete_municipio
+    depends_on:
+      - piattaforma-iot
+      - dashboard-report
 
-# ZeroTier per collegare centraline o sensori remoti
-rete-infrastrutture-remote:
-  image: zerotier/zerotier:latest
-  container_name: rete_edifici_remoti
-  restart: always
-  cap_add:
-    - NET_ADMIN
-    - SYS_ADMIN
-  devices:
-    - /dev/net/tun
-  environment:
-    - ZEROTIER_NETWORK_ID=${RETE_ZEROTIER_ID}
-    - ZEROTIER_IDENTITY_PUBLIC=${ZEROTIER_PUBLIC_KEY}
-    - ZEROTIER_IDENTITY_SECRET=${ZEROTIER_SECRET_KEY}
-  volumes:
-    - dati_zerotier_municipio:/var/lib/zerotier-one
-  network_mode: host
-  privileged: true
+  # ZeroTier
+  rete-infrastrutture-remote:
+    image: zerotier/zerotier:latest
+    container_name: rete_edifici_remoti
+    restart: always
+    env_file:
+      - .env
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    devices:
+      - /dev/net/tun
+    environment:
+      - ZEROTIER_NETWORK_ID=${RETE_ZEROTIER_ID}
+      - ZEROTIER_IDENTITY_PUBLIC=${ZEROTIER_IDENTITY_PUBLIC} 
+      - ZEROTIER_IDENTITY_SECRET=${ZEROTIER_IDENTITY_SECRET} 
+    volumes:
+      - dati_zerotier_municipio:/var/lib/zerotier-one
+    network_mode: host
+    privileged: true
 
 # =================================================================
 # VOLUMI PERSISTENTI
@@ -256,7 +275,11 @@ volumes:
     driver: local
   dati_zerotier_municipio:
     driver: local
-  dati_mcp_contexto: # Nuovo volume per i dati/codice MCP
+  dati_whisper_models:
+    driver: local
+  dati_piper_tts:
+    driver: local
+  dati_mcp_contexto:
     driver: local
 
 # =================================================================
