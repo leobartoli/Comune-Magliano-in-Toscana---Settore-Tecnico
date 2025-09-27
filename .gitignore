@@ -1,0 +1,50 @@
+# =========================================================
+# GITIGNORE PER PROGETTO TECNICO DIGITALE (DOCKER/AI/SMART ASSET)
+# =========================================================
+
+# 1. FILE DI CONFIGURAZIONE SENSIBILE E AMBIENTE
+###############################################
+# Il file con le variabili d'ambiente reali (password, token, ecc.)
+.env
+
+# 2. FILE E CARTELLE DEI VOLUMI PERSISTENTI (DATI DEI SERVIZI)
+###############################################
+# Questi sono i volumi creati da Docker Compose dove i servizi (DB, HA, AI)
+# scrivono i loro dati. NON vanno caricati sul repository.
+dati_ai_municipio/
+dati_piattaforma/
+dati_automazioni_municipio/
+dati_database_municipio/
+dati_cache_municipio/
+dati_dashboard_municipio/
+dati_metriche_municipio/
+dati_zerotier_municipio/
+
+# File di database locali che Home Assistant potrebbe creare
+*.db
+*.sqlite
+
+# 3. LOG E FILE TEMPORANEI
+##########################
+# File di log generici
+*.log
+log/
+tmp/
+
+# 4. SISTEMI OPERATIVI (MAC/WINDOWS/LINUX)
+##########################################
+# Mac
+.DS_Store
+
+# Linux
+*~
+
+# Windows
+Thumbs.db
+
+# 5. ARTEFATTI DI BUILD E UTILS
+###############################
+# Risultati di build, pip/conda environment, ecc.
+/venv
+/env
+/node_modules
