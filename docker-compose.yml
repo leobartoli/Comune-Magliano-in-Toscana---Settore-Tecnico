@@ -1,25 +1,17 @@
-version: '3.8'
-
 services:
 
 # =================================================================
 # INTELLIGENZA ARTIFICIALE E INTERAZIONE
 # =================================================================
 
-  # Cervello AI - Ollama con GPU (Analisi dati/Supporto decisionale)
+  # Cervello AI - Ollama (Funziona stabilmente su CPU)
   cervello-analitico:
     image: ollama/ollama:latest
     container_name: cervello_comune
     restart: always
     env_file:
       - .env
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    # Rimosso il blocco 'deploy' Nvidia che causava l'errore
     volumes:
       - dati_ai_municipio:/root/.ollama
     ports:
@@ -61,7 +53,7 @@ services:
     restart: always
     env_file:
       - .env
-    # Il comando usa l'opzione --http-server per esporre un'API REST per la sintesi
+    # Il comando usa l'opzione --http-server per esporre un'API REST
     command: --http-server --voice ${PIPER_VOICE}
     ports:
       # API REST per TTS (interfaccia facile da usare)
