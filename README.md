@@ -62,3 +62,5 @@ Crea il file di configurazione delle variabili d'ambiente copiando l'esempio for
 
 ```bash
 cp .env.example .env
+
+### Credenziali n8n:

@@ -67,6 +67,26 @@ services:
     ports:
       # Porta di comunicazione Wyoming (10200) mappata su 10201
       - "10201:10200"
+      - "5000:5000"    # ⭐ AGGIUNGI QUESTA RIGA per API Flask
+    networks:
+      - rete_municipio
+
+  # Riconoscimento Vocale Italiano (STT - Wyoming Whisper) ⭐ MODIFICATO: Modello impostato su 'small'
+  riconoscimento-vocale-stt:
+    image: rhasspy/wyoming-whisper:latest
+    container_name: voce_riconoscimento
+    restart: always
+    env_file:
+      - .env
+    # Modello specificato direttamente: 'small' offre un buon equilibrio
+    command: --model small --language it 
+    volumes:
+      # Volume per la cache dei modelli scaricati
+      - dati_stt_cache:/data
+      - ./audio_per_test:/audio 
+    ports:
+      # Porta di comunicazione Wyoming (10300)
+      - "10300:10300" 
     networks:
       - rete_municipio
 
@@ -263,6 +283,7 @@ volumes:
   dati_mcp_contexto:
     driver: local
   dati_tts_cache: 
+  dati_stt_cache: # Volume per la cache di Wyoming Whisper
 
 # =================================================================
 # RETE INTERNA DEL MUNICIPIO
