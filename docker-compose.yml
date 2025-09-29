@@ -33,9 +33,14 @@ services:
     networks:
       - rete_municipio
 
-  # Server di Contesto (Model Context Protocol - MCP)
+# Server di Contesto (Model Context Protocol - MCP)
   server-context-mcp:
-    image: python:3.11-slim
+    # ⚠️ SOSTITUISCI 'image:' CON 'build:'
+    # image: python:3.11-slim  # Rimosso
+    build:
+      context: ./context_mcp   # Il percorso della cartella che contiene il Dockerfile
+      dockerfile: Dockerfile
+      
     container_name: server_contesto_mcp
     restart: always
     env_file:
@@ -67,7 +72,7 @@ services:
     ports:
       # Porta di comunicazione Wyoming (10200) mappata su 10201
       - "10201:10200"
-      - "5000:5000"    # ⭐ AGGIUNGI QUESTA RIGA per API Flask
+      - "5001:5000"    # ⭐ AGGIUNGI QUESTA RIGA per API Flask
     networks:
       - rete_municipio
 
