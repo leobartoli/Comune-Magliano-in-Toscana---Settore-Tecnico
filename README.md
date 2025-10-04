@@ -1,4 +1,4 @@
-# 🏛️ Piattaforma Smart per la Gestione del Patrimonio Comunale e della Protezione Civile
+# 🏛️ Piattaforma Smart per la Gestione del settore Tecnico del comune di Magliano in Toscana
 
 Questo repository contiene la configurazione Docker Compose per una piattaforma integrata di **monitoraggio, automazione e analisi** dedicata alla gestione intelligente degli asset e delle infrastrutture di un comune (Smart City / Smart Building).
 
