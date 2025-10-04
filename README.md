@@ -1,4 +1,4 @@
-# 🏛️ Piattaforma Smart per la Gestione del Patrimonio Comunale
+# 🏛️ Piattaforma Smart per la Gestione del Patrimonio Comunale e della Protezione Civile
 
 Questo repository contiene la configurazione Docker Compose per una piattaforma integrata di **monitoraggio, automazione e analisi** dedicata alla gestione intelligente degli asset e delle infrastrutture di un comune (Smart City / Smart Building).
 
