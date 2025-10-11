@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="it">
 <head>
     <meta charset="UTF-8">
@@ -131,390 +132,432 @@
 <body>
     <div class="container">
         <h1>🤖 Roboflow Detection</h1>
+
+```
+    <div class="config">
+        <h3>⚙️ Configurazione</h3>
+        <label><strong>API Key:</strong></label>
+        <input type="text" id="apiKey" placeholder="hjcudt3Kqs6pA1yEYh51" value="hjcudt3Kqs6pA1yEYh51">
         
-        <div class="config">
-            <h3>⚙️ Configurazione</h3>
-            <label><strong>API Key:</strong></label>
-            <input type="text" id="apiKey" placeholder="hjcudt3Kqs6pA1yEYh51" value="hjcudt3Kqs6pA1yEYh51">
-            
-            <label><strong>Model Endpoint:</strong></label>
-            <input type="text" id="modelEndpoint" placeholder="workspace/modello/1" value="vegetazione-mura-storiche-cwo8b/1">
-            
-            <small>📍 Trova in: Roboflow → Deploy → Hosted API → MODEL_ID</small>
-        </div>
+        <label><strong>Model Endpoint:</strong></label>
+        <input type="text" id="modelEndpoint" placeholder="workspace/modello/1" value="vegetazione-mura-storiche-cwo8b/1">
         
-        <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
-        <input type="file" id="fileInput2" accept="image/*" style="display:none">
-        
-        <div id="buttonContainer">
-            <button onclick="document.getElementById('fileInput').click()">
-                📷 Scatta Foto
-            </button>
-            
-            <button onclick="document.getElementById('fileInput2').click()">
-                🖼️ Carica Immagine
-            </button>
-            
-            <button onclick="startCamera()" id="startCameraBtn">
-                🎥 Avvia Telecamera
-            </button>
-        </div>
-        
-        <button onclick="stopCamera()" id="stopCameraBtn" class="stop" style="display:none;">
-            ⏹️ Ferma Telecamera
-        </button>
-        
-        <canvas id="preview"></canvas>
-        
-        <div id="videoContainer">
-            <video id="videoElement" autoplay playsinline></video>
-            <canvas id="videoCanvas"></canvas>
-        </div>
-        
-        <div id="results"></div>
+        <small>📍 Trova in: Roboflow → Deploy → Hosted API → MODEL_ID</small>
     </div>
     
-    <script>
-        let stream = null;
-        let detectionInterval = null;
-        let isDetecting = false;
+    <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
+    <input type="file" id="fileInput2" accept="image/*" style="display:none">
+    
+    <div id="buttonContainer">
+        <button onclick="document.getElementById('fileInput').click()">
+            📷 Scatta Foto
+        </button>
         
-        // Gestisci upload file
-        document.getElementById('fileInput').addEventListener('change', handleImage);
-        document.getElementById('fileInput2').addEventListener('change', handleImage);
+        <button onclick="document.getElementById('fileInput2').click()">
+            🖼️ Carica Immagine
+        </button>
         
-        async function handleImage(event) {
-            stopCamera();
+        <button onclick="startCamera()" id="startCameraBtn">
+            🎥 Avvia Telecamera
+        </button>
+    </div>
+    
+    <button onclick="stopCamera()" id="stopCameraBtn" class="stop" style="display:none;">
+        ⏹️ Ferma Telecamera
+    </button>
+    
+    <canvas id="preview"></canvas>
+    
+    <div id="videoContainer">
+        <video id="videoElement" autoplay playsinline></video>
+        <canvas id="videoCanvas"></canvas>
+    </div>
+    
+    <div id="results"></div>
+</div>
+
+<script>
+    let stream = null;
+    let detectionInterval = null;
+    let isDetecting = false;
+    
+    // Gestisci upload file
+    document.getElementById('fileInput').addEventListener('change', handleImage);
+    document.getElementById('fileInput2').addEventListener('change', handleImage);
+    
+    async function handleImage(event) {
+        stopCamera();
+        
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const apiKey = document.getElementById('apiKey').value.trim();
+        const modelEndpoint = document.getElementById('modelEndpoint').value.trim();
+        
+        if (!apiKey || !modelEndpoint) {
+            showError('⚠️ Inserisci API Key e Model Endpoint!');
+            return;
+        }
+        
+        const canvas = document.getElementById('preview');
+        canvas.style.display = 'block';
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = async function() {
+            const maxWidth = 640;
+            const scale = maxWidth / img.width;
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
             
-            const file = event.target.files[0];
-            if (!file) return;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const modelEndpoint = document.getElementById('modelEndpoint').value.trim();
-            
-            if (!apiKey || !modelEndpoint) {
-                showError('⚠️ Inserisci API Key e Model Endpoint!');
-                return;
+            const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+            await detectObjects(base64, canvas, apiKey, modelEndpoint);
+        };
+        
+        img.src = URL.createObjectURL(file);
+    }
+    
+    async function startCamera() {
+        const apiKey = document.getElementById('apiKey').value.trim();
+        const modelEndpoint = document.getElementById('modelEndpoint').value.trim();
+        
+        if (!apiKey || !modelEndpoint) {
+            showError('⚠️ Inserisci API Key e Model Endpoint!');
+            return;
+        }
+        
+        // Mostra stato caricamento
+        document.getElementById('results').innerHTML = '<p class="loading">📹 Avvio telecamera...</p>';
+        
+        try {
+            // Controlla se il browser supporta getUserMedia
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('Il tuo browser non supporta l\'accesso alla telecamera');
             }
             
-            const canvas = document.getElementById('preview');
-            canvas.style.display = 'block';
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
+            console.log('Richiesta accesso telecamera...');
             
-            img.onload = async function() {
-                const maxWidth = 640;
-                const scale = maxWidth / img.width;
-                canvas.width = img.width * scale;
-                canvas.height = img.height * scale;
+            // Nascondi preview immagine
+            document.getElementById('preview').style.display = 'none';
+            
+            // Prova prima con impostazioni semplici
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { ideal: 'environment' },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+                audio: false
+            });
+            
+            console.log('Stream ottenuto:', stream);
+            
+            const video = document.getElementById('videoElement');
+            const videoContainer = document.getElementById('videoContainer');
+            const canvas = document.getElementById('videoCanvas');
+            
+            video.srcObject = stream;
+            videoContainer.style.display = 'block';
+            
+            console.log('Video element configurato');
+            
+            // Nascondi pulsanti normali, mostra stop
+            document.getElementById('buttonContainer').style.display = 'none';
+            document.getElementById('stopCameraBtn').style.display = 'inline-block';
+            
+            // Attendi che il video sia pronto
+            await video.play();
+            
+            video.onloadedmetadata = () => {
+                console.log('Video pronto:', video.videoWidth, 'x', video.videoHeight);
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
                 
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                document.getElementById('results').innerHTML = '<p class="loading">✅ Telecamera attiva - Rilevamento in corso...</p>';
                 
-                const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-                await detectObjects(base64, canvas, apiKey, modelEndpoint);
+                // Avvia detection continuo
+                startContinuousDetection(video, canvas, apiKey, modelEndpoint);
             };
             
-            img.src = URL.createObjectURL(file);
-        }
-        
-        async function startCamera() {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const modelEndpoint = document.getElementById('modelEndpoint').value.trim();
+        } catch (error) {
+            console.error('Errore telecamera completo:', error);
             
-            if (!apiKey || !modelEndpoint) {
-                showError('⚠️ Inserisci API Key e Model Endpoint!');
-                return;
+            let errorMsg = '❌ Errore telecamera: ';
+            
+            if (error.name === 'NotAllowedError') {
+                errorMsg += 'Permesso negato. Concedi l\'accesso alla telecamera nelle impostazioni del browser.';
+            } else if (error.name === 'NotFoundError') {
+                errorMsg += 'Nessuna telecamera trovata sul dispositivo.';
+            } else if (error.name === 'NotReadableError') {
+                errorMsg += 'Telecamera già in uso da un\'altra app.';
+            } else if (error.name === 'OverconstrainedError') {
+                errorMsg += 'Telecamera non supporta le impostazioni richieste.';
+            } else {
+                errorMsg += error.message;
             }
             
-            try {
-                // Nascondi preview immagine
-                document.getElementById('preview').style.display = 'none';
-                
-                // Richiedi accesso alla telecamera
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'environment', // Usa telecamera posteriore
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                });
-                
-                const video = document.getElementById('videoElement');
-                const videoContainer = document.getElementById('videoContainer');
-                const canvas = document.getElementById('videoCanvas');
-                
-                video.srcObject = stream;
-                videoContainer.style.display = 'block';
-                
-                // Nascondi pulsanti normali, mostra stop
-                document.getElementById('buttonContainer').style.display = 'none';
-                document.getElementById('stopCameraBtn').style.display = 'inline-block';
-                
-                // Attendi che il video sia pronto
-                video.onloadedmetadata = () => {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    
-                    // Avvia detection continuo
-                    startContinuousDetection(video, canvas, apiKey, modelEndpoint);
-                };
-                
-            } catch (error) {
-                console.error('Errore telecamera:', error);
-                showError('❌ Impossibile accedere alla telecamera: ' + error.message);
-            }
-        }
-        
-        function stopCamera() {
-            // Ferma lo stream video
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
+            showError(errorMsg);
             
-            // Ferma detection
-            if (detectionInterval) {
-                clearInterval(detectionInterval);
-                detectionInterval = null;
-            }
-            
-            isDetecting = false;
-            
-            // Nascondi video
-            document.getElementById('videoContainer').style.display = 'none';
-            
-            // Mostra pulsanti normali
+            // Ripristina pulsanti
             document.getElementById('buttonContainer').style.display = 'block';
             document.getElementById('stopCameraBtn').style.display = 'none';
-            
-            // Pulisci risultati
-            document.getElementById('results').innerHTML = '';
+        }
+    }
+    
+    function stopCamera() {
+        // Ferma lo stream video
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
         }
         
-        function startContinuousDetection(video, canvas, apiKey, modelEndpoint) {
-            let frameCount = 0;
-            
-            detectionInterval = setInterval(async () => {
-                if (isDetecting) return; // Salta se sta già rilevando
-                
-                isDetecting = true;
-                frameCount++;
-                
-                try {
-                    // Cattura frame dal video
-                    const tempCanvas = document.createElement('canvas');
-                    const maxWidth = 640;
-                    const scale = maxWidth / video.videoWidth;
-                    
-                    tempCanvas.width = video.videoWidth * scale;
-                    tempCanvas.height = video.videoHeight * scale;
-                    
-                    const ctx = tempCanvas.getContext('2d');
-                    ctx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
-                    
-                    const base64 = tempCanvas.toDataURL('image/jpeg', 0.6).split(',')[1];
-                    
-                    // Rileva oggetti
-                    await detectObjectsLive(base64, canvas, apiKey, modelEndpoint, frameCount);
-                    
-                } catch (error) {
-                    console.error('Errore detection:', error);
-                } finally {
-                    isDetecting = false;
-                }
-                
-            }, 1000); // Rileva ogni secondo
+        // Ferma detection
+        if (detectionInterval) {
+            clearInterval(detectionInterval);
+            detectionInterval = null;
         }
         
-        async function detectObjectsLive(base64Image, canvas, apiKey, modelEndpoint, frameCount) {
+        isDetecting = false;
+        
+        // Nascondi video
+        document.getElementById('videoContainer').style.display = 'none';
+        
+        // Mostra pulsanti normali
+        document.getElementById('buttonContainer').style.display = 'block';
+        document.getElementById('stopCameraBtn').style.display = 'none';
+        
+        // Pulisci risultati
+        document.getElementById('results').innerHTML = '';
+    }
+    
+    function startContinuousDetection(video, canvas, apiKey, modelEndpoint) {
+        let frameCount = 0;
+        
+        detectionInterval = setInterval(async () => {
+            if (isDetecting) return; // Salta se sta già rilevando
+            
+            isDetecting = true;
+            frameCount++;
+            
             try {
-                const url = `https://detect.roboflow.com/${modelEndpoint}?api_key=${apiKey}`;
+                // Cattura frame dal video
+                const tempCanvas = document.createElement('canvas');
+                const maxWidth = 640;
+                const scale = maxWidth / video.videoWidth;
                 
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: base64Image
-                });
+                tempCanvas.width = video.videoWidth * scale;
+                tempCanvas.height = video.videoHeight * scale;
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
+                const ctx = tempCanvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
                 
-                const result = await response.json();
+                const base64 = tempCanvas.toDataURL('image/jpeg', 0.6).split(',')[1];
                 
-                if (result && result.predictions) {
-                    drawPredictionsOnVideo(result.predictions, canvas);
-                    displayResultsLive(result.predictions, frameCount);
-                }
+                // Rileva oggetti
+                await detectObjectsLive(base64, canvas, apiKey, modelEndpoint, frameCount);
                 
             } catch (error) {
-                console.error('Errore rilevamento:', error);
+                console.error('Errore detection:', error);
+            } finally {
+                isDetecting = false;
             }
-        }
-        
-        function drawPredictionsOnVideo(predictions, canvas) {
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            if (predictions.length === 0) return;
+        }, 1000); // Rileva ogni secondo
+    }
+    
+    async function detectObjectsLive(base64Image, canvas, apiKey, modelEndpoint, frameCount) {
+        try {
+            const url = `https://detect.roboflow.com/${modelEndpoint}?api_key=${apiKey}`;
             
-            ctx.strokeStyle = '#00FF00';
-            ctx.lineWidth = 4;
-            ctx.font = 'bold 20px Arial';
-            ctx.fillStyle = '#00FF00';
-            ctx.shadowColor = 'black';
-            ctx.shadowBlur = 8;
-            
-            predictions.forEach(pred => {
-                const x = pred.x - pred.width / 2;
-                const y = pred.y - pred.height / 2;
-                
-                // Box
-                ctx.strokeRect(x, y, pred.width, pred.height);
-                
-                // Label con sfondo
-                const label = `${pred.class} ${(pred.confidence * 100).toFixed(0)}%`;
-                const textWidth = ctx.measureText(label).width;
-                
-                ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
-                ctx.fillRect(x, y - 30, textWidth + 10, 28);
-                
-                ctx.fillStyle = 'black';
-                ctx.fillText(label, x + 5, y - 8);
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: base64Image
             });
             
-            ctx.shadowBlur = 0;
-        }
-        
-        function displayResultsLive(predictions, frameCount) {
-            const resultsDiv = document.getElementById('results');
-            
-            if (predictions.length === 0) {
-                resultsDiv.innerHTML = `
-                    <div class="stats">
-                        Frame: ${frameCount} | 🔍 Nessun oggetto rilevato
-                    </div>
-                `;
-                return;
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
             }
             
-            let html = `
+            const result = await response.json();
+            
+            if (result && result.predictions) {
+                drawPredictionsOnVideo(result.predictions, canvas);
+                displayResultsLive(result.predictions, frameCount);
+            }
+            
+        } catch (error) {
+            console.error('Errore rilevamento:', error);
+        }
+    }
+    
+    function drawPredictionsOnVideo(predictions, canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if (predictions.length === 0) return;
+        
+        ctx.strokeStyle = '#00FF00';
+        ctx.lineWidth = 4;
+        ctx.font = 'bold 20px Arial';
+        ctx.fillStyle = '#00FF00';
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 8;
+        
+        predictions.forEach(pred => {
+            const x = pred.x - pred.width / 2;
+            const y = pred.y - pred.height / 2;
+            
+            // Box
+            ctx.strokeRect(x, y, pred.width, pred.height);
+            
+            // Label con sfondo
+            const label = `${pred.class} ${(pred.confidence * 100).toFixed(0)}%`;
+            const textWidth = ctx.measureText(label).width;
+            
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+            ctx.fillRect(x, y - 30, textWidth + 10, 28);
+            
+            ctx.fillStyle = 'black';
+            ctx.fillText(label, x + 5, y - 8);
+        });
+        
+        ctx.shadowBlur = 0;
+    }
+    
+    function displayResultsLive(predictions, frameCount) {
+        const resultsDiv = document.getElementById('results');
+        
+        if (predictions.length === 0) {
+            resultsDiv.innerHTML = `
                 <div class="stats">
-                    Frame: ${frameCount} | ✅ Rilevati <strong>${predictions.length}</strong> oggetti
+                    Frame: ${frameCount} | 🔍 Nessun oggetto rilevato
                 </div>
             `;
+            return;
+        }
+        
+        let html = `
+            <div class="stats">
+                Frame: ${frameCount} | ✅ Rilevati <strong>${predictions.length}</strong> oggetti
+            </div>
+        `;
+        
+        predictions.forEach((pred, i) => {
+            html += `
+                <div class="detection">
+                    <strong>${i + 1}. ${pred.class}</strong> - ${(pred.confidence * 100).toFixed(1)}%
+                </div>
+            `;
+        });
+        
+        resultsDiv.innerHTML = html;
+    }
+    
+    async function detectObjects(base64Image, canvas, apiKey, modelEndpoint) {
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.innerHTML = '<p class="loading">🔄 Analisi in corso...</p>';
+        
+        try {
+            const url = `https://detect.roboflow.com/${modelEndpoint}?api_key=${apiKey}`;
             
-            predictions.forEach((pred, i) => {
-                html += `
-                    <div class="detection">
-                        <strong>${i + 1}. ${pred.class}</strong> - ${(pred.confidence * 100).toFixed(1)}%
-                    </div>
-                `;
+            console.log('🔗 URL richiesta:', url);
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: base64Image
             });
             
-            resultsDiv.innerHTML = html;
-        }
-        
-        async function detectObjects(base64Image, canvas, apiKey, modelEndpoint) {
-            const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = '<p class="loading">🔄 Analisi in corso...</p>';
+            console.log('📡 Status risposta:', response.status);
             
-            try {
-                const url = `https://detect.roboflow.com/${modelEndpoint}?api_key=${apiKey}`;
-                
-                console.log('🔗 URL richiesta:', url);
-                
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: base64Image
-                });
-                
-                console.log('📡 Status risposta:', response.status);
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 200)}`);
-                }
-                
-                const result = await response.json();
-                console.log('✅ Risposta:', result);
-                
-                if (!result || !result.predictions) {
-                    showError('⚠️ Risposta non valida', result);
-                    return;
-                }
-                
-                displayResults(result, canvas);
-                
-            } catch (error) {
-                console.error('❌ Errore:', error);
-                showError(`❌ Errore: ${error.message}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 200)}`);
             }
-        }
-        
-        function displayResults(result, canvas) {
-            const resultsDiv = document.getElementById('results');
-            const predictions = result.predictions || [];
             
-            if (predictions.length === 0) {
-                resultsDiv.innerHTML = '<p>🔍 Nessun oggetto rilevato</p>';
+            const result = await response.json();
+            console.log('✅ Risposta:', result);
+            
+            if (!result || !result.predictions) {
+                showError('⚠️ Risposta non valida', result);
                 return;
             }
             
-            const ctx = canvas.getContext('2d');
-            ctx.strokeStyle = '#00FF00';
-            ctx.lineWidth = 3;
-            ctx.font = 'bold 16px Arial';
-            ctx.fillStyle = '#00FF00';
-            ctx.shadowColor = 'black';
-            ctx.shadowBlur = 4;
+            displayResults(result, canvas);
             
-            predictions.forEach(pred => {
-                const x = pred.x - pred.width / 2;
-                const y = pred.y - pred.height / 2;
-                
-                ctx.strokeRect(x, y, pred.width, pred.height);
-                ctx.fillText(
-                    `${pred.class} ${(pred.confidence * 100).toFixed(1)}%`,
-                    x + 5,
-                    y - 8
-                );
-            });
-            
-            ctx.shadowBlur = 0;
-            
-            let html = `<h3>✅ Rilevati ${predictions.length} oggetti:</h3>`;
-            predictions.forEach((pred, i) => {
-                html += `
-                    <div class="detection">
-                        <strong>${i + 1}. ${pred.class}</strong><br>
-                        Confidenza: <strong>${(pred.confidence * 100).toFixed(1)}%</strong><br>
-                        Posizione: x=${pred.x.toFixed(0)}, y=${pred.y.toFixed(0)}
-                    </div>
-                `;
-            });
-            
-            resultsDiv.innerHTML = html;
+        } catch (error) {
+            console.error('❌ Errore:', error);
+            showError(`❌ Errore: ${error.message}`);
+        }
+    }
+    
+    function displayResults(result, canvas) {
+        const resultsDiv = document.getElementById('results');
+        const predictions = result.predictions || [];
+        
+        if (predictions.length === 0) {
+            resultsDiv.innerHTML = '<p>🔍 Nessun oggetto rilevato</p>';
+            return;
         }
         
-        function showError(message, debugData = null) {
-            const resultsDiv = document.getElementById('results');
-            let html = `<div class="error">${message}</div>`;
+        const ctx = canvas.getContext('2d');
+        ctx.strokeStyle = '#00FF00';
+        ctx.lineWidth = 3;
+        ctx.font = 'bold 16px Arial';
+        ctx.fillStyle = '#00FF00';
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 4;
+        
+        predictions.forEach(pred => {
+            const x = pred.x - pred.width / 2;
+            const y = pred.y - pred.height / 2;
             
-            if (debugData) {
-                html += `<details style="margin-top: 10px; background: #f5f5f5; padding: 10px; border-radius: 4px;">
-                    <summary style="cursor: pointer; font-weight: bold;">🔍 Dettagli</summary>
-                    <pre style="overflow-x: auto; font-size: 11px;">${JSON.stringify(debugData, null, 2)}</pre>
-                </details>`;
-            }
-            
-            resultsDiv.innerHTML = html;
+            ctx.strokeRect(x, y, pred.width, pred.height);
+            ctx.fillText(
+                `${pred.class} ${(pred.confidence * 100).toFixed(1)}%`,
+                x + 5,
+                y - 8
+            );
+        });
+        
+        ctx.shadowBlur = 0;
+        
+        let html = `<h3>✅ Rilevati ${predictions.length} oggetti:</h3>`;
+        predictions.forEach((pred, i) => {
+            html += `
+                <div class="detection">
+                    <strong>${i + 1}. ${pred.class}</strong><br>
+                    Confidenza: <strong>${(pred.confidence * 100).toFixed(1)}%</strong><br>
+                    Posizione: x=${pred.x.toFixed(0)}, y=${pred.y.toFixed(0)}
+                </div>
+            `;
+        });
+        
+        resultsDiv.innerHTML = html;
+    }
+    
+    function showError(message, debugData = null) {
+        const resultsDiv = document.getElementById('results');
+        let html = `<div class="error">${message}</div>`;
+        
+        if (debugData) {
+            html += `<details style="margin-top: 10px; background: #f5f5f5; padding: 10px; border-radius: 4px;">
+                <summary style="cursor: pointer; font-weight: bold;">🔍 Dettagli</summary>
+                <pre style="overflow-x: auto; font-size: 11px;">${JSON.stringify(debugData, null, 2)}</pre>
+            </details>`;
         }
-    </script>
+        
+        resultsDiv.innerHTML = html;
+    }
+</script>
+```
+
 </body>
 </html>
