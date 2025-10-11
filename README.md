@@ -1,4 +1,4 @@
-# 🏛️ Piattaforma Smart per la Gestione del Patrimonio Comunale
+# 🏛️ Piattaforma Smart per la gestione del settore Tecnico del comune di Magliano in Toscana
 
 Questo repository contiene la configurazione Docker Compose per una piattaforma integrata di **monitoraggio, automazione e analisi** dedicata alla gestione intelligente degli asset e delle infrastrutture di un comune (Smart City / Smart Building).
 
@@ -16,7 +16,7 @@ Il sistema è suddiviso in cinque aree funzionali principali:
 | **interazione-vocale** | Riconoscimento Vocale (Vosk) per interfacce operatore/sportello. | `2700` |
 | **sintesi-vocale-avvisi** | Sintesi Vocale (Piper) per avvisi e notifiche automatiche. | `10200` |
 
-### 🏘️ 2. Automazione e Monitoraggio Infrastrutture
+### 🏘️ 2. Automazione e Monitoraggio Infrastrutture e procedimenti
 
 | Servizio | Funzione | Porta Esterna |
 | :--- | :--- | :--- |
